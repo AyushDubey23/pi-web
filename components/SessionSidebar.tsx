@@ -1807,13 +1807,7 @@ function SessionItem({
     }
   }, [renameValue, session.id, session.name, onRenamed]);
 
-  const handleDeleteClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    setConfirmDelete(true);
-  }, []);
-
-  const handleDeleteConfirm = useCallback(async (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const performDelete = useCallback(async () => {
     setConfirmDelete(false);
     setDeleting(true);
     try {
@@ -1824,17 +1818,54 @@ function SessionItem({
     }
   }, [session.id, onDeleted]);
 
+  const handleDeleteClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (e.shiftKey) {
+      void performDelete();
+    } else {
+      setConfirmDelete(true);
+    }
+  }, [performDelete]);
+
+  const handleDeleteConfirm = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    void performDelete();
+  }, [performDelete]);
+
   const handleDeleteCancel = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     setConfirmDelete(false);
   }, []);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (renaming) return;
+    if (e.key === "Delete") {
+      e.stopPropagation();
+      e.preventDefault();
+      if (e.shiftKey || confirmDelete) {
+        void performDelete();
+      } else {
+        setConfirmDelete(true);
+      }
+    } else if (confirmDelete) {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        setConfirmDelete(false);
+      } else if (e.key === "Enter") {
+        e.stopPropagation();
+        void performDelete();
+      }
+    }
+  }, [renaming, confirmDelete, performDelete]);
 
   // Fixed-height outer wrapper — content swaps in place so the list never reflows
   const ITEM_HEIGHT = 54;
 
   return (
     <div
+      tabIndex={0}
       onClick={confirmDelete || renaming ? undefined : onClick}
+      onKeyDown={handleKeyDown}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => { setHovered(false); }}
       style={{
@@ -1844,6 +1875,7 @@ function SessionItem({
         paddingLeft: depth > 0 ? depth * 12 + 14 : 14,
         paddingRight: 8,
         cursor: confirmDelete || renaming ? "default" : "pointer",
+        outline: "none",
         background: confirmDelete
           ? "rgba(239,68,68,0.06)"
           : isSelected ? "var(--bg-selected)" : hovered ? "var(--bg-hover)" : "transparent",
@@ -2028,7 +2060,7 @@ function SessionItem({
               </button>
               <button
                 onClick={handleDeleteClick}
-                title="Delete"
+                title="Delete (Shift+Delete to delete without confirmation)"
                 style={{
                   display: "flex", alignItems: "center", justifyContent: "center",
                   width: 32, height: 32, padding: 0,
